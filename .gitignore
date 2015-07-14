@@ -1,0 +1,7 @@
+# Ignore the Python egg info data
+nti.deploymenttools.library.egg-info
+
+# Ignore directories created by distutils
+build
+dist
+
