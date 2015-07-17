@@ -33,7 +33,7 @@ setup(
 	],
 	packages = find_packages( 'src' ),
 	package_dir = {'': 'src'},
-	namespace_packages=['nti',],
+	namespace_packages=['nti', 'nti.deploymenttools'],
 	zip_safe = False,
 	entry_points = entry_points
 	)
