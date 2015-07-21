@@ -52,8 +52,9 @@ def sync_library(host, user, password, flags):
     if response.status_code == requests.codes.ok:
         _analyze_response(response)
         if flags['dry-run']:
-            logger.info('Dry-run sync of %s libraries succeeded.' % host)
+            logger.info('Dry-run sync of %s libraries succeeded. Exiting.' % host)
         else:
+            logger.info('Dry-run sync of %s libraries succeeded. Performing real sync.' % host)
             response = requests.post(url, headers=headers, data=json.dumps(body), auth=(user, password))
             if response.status_code == requests.codes.ok:
                 logger.info('Sync of %s libraries succeeded.' % host)
