@@ -37,7 +37,7 @@ def sync_library(host, user, password, flags):
     url = 'https://%s/dataserver2/@@SyncAllLibraries' % host
     headers = {
         'Content-Type': 'application/json',
-        'user-agent': 'nti-sync-tool',
+        'user-agent': 'NextThought Library Sync Utility',
         'X-Requested-With': 'XMLHttpRequest'
     }
 
