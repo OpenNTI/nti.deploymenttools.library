@@ -70,6 +70,8 @@ def _parse_args():
                              help="The server to be synced." )
     arg_parser.add_argument( '-u', '--user', dest='user', 
                              help="User to authenticate with the server." )
+    arg_parser.add_argument( '--password', dest='password', default=None,
+                             help="User password. This option should only be used when calling this utility via a script." )
     arg_parser.add_argument( '--remove-content', dest='remove_content', action='store_true', 
                              help="Flag to permit the sync to remove content from the server." )
     arg_parser.add_argument( '--dry-run', dest='dry_run', action='store_true', 
@@ -83,7 +85,9 @@ def main():
     flags['remove-content'] = args.remove_content
     flags['dry-run'] = args.dry_run
 
-    password = getpass('Password for %s: ' % args.user)
+    password = args.password
+    if password is None:
+        password = getpass('Password for %s: ' % args.user)
 
     sync_library(args.host, args.user, password, flags)
 
