@@ -23,16 +23,27 @@ def sync_library(host, user, password, flags):
         #    print(json.dumps(response.json(), indent=4, separators=(',', ': '), sort_keys=True))
         pass
 
-    def _handle_error_code(response):
-        if response.status_code == requests.codes.internal_server_error:
-            _analyze_response(response)
-            logger.error('The server had an error while syncing the libary.')
-        else:
-            logger.error('Sync of %s libraries failed' % host)
-            if response.status_code == requests.codes.unauthorized:
-                logger.error('Unknown user or incorrect password.')
+    def _analyze_response_body(response, status_code):
+        if 'json' in response.headers['content-type']:
+            if response.status_code == requests.codes.ok:
+                results = response.json()['Results']['Items']
+                _sites = []
+                _courses = []
+                for result in results:
+                    if result['Class'] == 'LibrarySynchronizationResults':
+                        if not (result['Added'] == result['Modified'] == result['Removed'] == None):
+                            _sites.append(result)
+                    elif result['Class'] == 'CourseSynchronizationResults':
+                        _courses.append(result)
+                return {'sites': _sites, 'courses': _courses}
             else:
-                logger.error('Unknown error %s occurred' % response.status_code)
+#                print(json.dumps(response.json(), indent=4, separators=(',', ': '), sort_keys=True))
+                return(response.json())
+        else:
+            if status_code == requests.codes.unauthorized:
+                return {'message': 'Unknown user or incorrect password.'}
+            else:
+                return {'message': 'Unknown error %s occurred' % status_code}
 
     url = 'https://%s/dataserver2/@@SyncAllLibraries' % host
     headers = {
@@ -47,21 +58,22 @@ def sync_library(host, user, password, flags):
         body['allowRemoval'] = 'true'
 
     logger.info('Syncing %s libraries' % host)
-    response = requests.get(url, headers=headers, data=json.dumps(body), auth=(user, password))
-
-    if response.status_code == requests.codes.ok:
-        _analyze_response(response)
-        if flags['dry-run']:
-            logger.info('Dry-run sync of %s libraries succeeded. Exiting.' % host)
-        else:
-            logger.info('Dry-run sync of %s libraries succeeded. Performing real sync.' % host)
-            response = requests.post(url, headers=headers, data=json.dumps(body), auth=(user, password))
-            if response.status_code == requests.codes.ok:
-                logger.info('Sync of %s libraries succeeded.' % host)
+    try:
+        response = requests.get(url, headers=headers, data=json.dumps(body), auth=(user, password))
+        response_body = _analyze_response_body(response, response.status_code)
+        response.raise_for_status()
+        if response.status_code == requests.codes.ok:
+            if flags['dry-run-only']:
+                logger.info('Dry-run sync of %s libraries succeeded. Exiting.' % host)
             else:
-                _handle_error_code(response)
-    else:
-        _handle_error_code(response)
+                logger.info('Dry-run sync of %s libraries succeeded. Performing real sync.' % host)
+                response = requests.post(url, headers=headers, data=json.dumps(body), auth=(user, password))
+                response_body = _analyze_response_body(response, response.status_code)
+                response.raise_for_status()
+                if response.status_code == requests.codes.ok:
+                    logger.info('Sync of %s libraries succeeded.' % host)
+    except requests.HTTPError:
+        logger.error(response_body['message'])
 
 def _parse_args():
     # Parse command line args
@@ -83,7 +95,7 @@ def main():
 
     flags = {}
     flags['remove-content'] = args.remove_content
-    flags['dry-run'] = args.dry_run
+    flags['dry-run-only'] = args.dry_run
 
     password = args.password
     if password is None:
