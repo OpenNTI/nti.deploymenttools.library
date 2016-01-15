@@ -42,6 +42,12 @@ def sync_library(host, user, password, flags):
         else:
             if status_code == requests.codes.unauthorized:
                 return {'message': 'Unknown user or incorrect password.'}
+            elif status_code == requests.codes.bad_gateway:
+                return {'message': 'The server is returning garbage. Please try again later.'}
+            elif status_code == requests.codes.service_unavailable:
+                return {'message': 'The server is down. Please try again later.'}
+            elif status_code == requests.codes.gateway_timeout:
+                return {'message': 'The server took too long to respond. The sync is still running, however you will have to splunk for the result.'}
             else:
                 return {'message': 'Unknown error %s occurred' % status_code}
 
