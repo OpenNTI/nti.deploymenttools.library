@@ -18,6 +18,52 @@ log_handler.setLevel(logging.INFO)
 logger.addHandler(log_handler)
 logging.captureWarnings(True)
 
+reverse_site_map = {
+    'alpha.nextthought.com': 'alpha.nextthought.com',
+    'augsfluoroscopy-alpha.nextthought.com': 'augsfluoroscopy.nextthought.com',
+    'columbia-alpha.nextthought.com': 'columbia.nextthought.com',
+    'connect-alpha.nextthought.com': 'connect.nextthought.com',
+    'ihs-alpha.nextthought.com': 'ihs.nextthought.com',
+    'k20-alpha.nextthought.com': 'k20.nextthought.com',
+    'litworld-alpha.nextthought.com': 'litworld.nextthought.com',
+    'mathcounts-alpha.nextthought.com': 'mathcounts.nextthought.com',
+    'oc-alpha.nextthought.com': 'oc.nextthought.com',
+    'okstate-alpha.nextthought.com': 'okstate.nextthought.com',
+    'ou-alpha.nextthought.com': 'platform.ou.edu',
+    'prmia-alpha.nextthought.com': 'prmia.nextthought.com',
+    'spurstartup-alpha.nextthought.com': 'spurstartup.nextthought.com',
+    'symmys-alpha.nextthought.com': 'symmys.nextthought.com',
+    'augsfluoroscopy-test.nextthought.com': 'augsfluoroscopy.nextthought.com',
+    'columbia-test.nextthought.com': 'columbia.nextthought.com',
+    'connect-test.nextthought.com': 'connect.nextthought.com',
+    'ihs-test.nextthought.com': 'ihs.nextthought.com',
+    'k20-test.nextthought.com': 'k20.nextthought.com',
+    'litworld-test.nextthought.com': 'litworld.nextthought.com',
+    'mathcounts-test.nextthought.com': 'mathcounts.nextthought.com',
+    'oc-test.nextthought.com': 'oc.nextthought.com',
+    'okstate-test.nextthought.com': 'okstate.nextthought.com',
+    'ou-test.nextthought.com': 'platform.ou.edu',
+    'prmia-test.nextthought.com': 'prmia.nextthought.com',
+    'spurstartup-test.nextthought.com': 'spurstartup.nextthought.com',
+    'symmys-test.nextthought.com': 'symmys.nextthought.com',
+    'augsfluoroscopy.nextthought.com': 'augsfluoroscopy.nextthought.com',
+    'columbia.nextthought.com': 'columbia.nextthought.com',
+    'connect.nextthought.com': 'connect.nextthought.com',
+    'ihs.nextthought.com': 'ihs.nextthought.com',
+    'janux.ou.edu': 'platform.ou.edu',
+    'k20.nextthought.com': 'k20.nextthought.com',
+    'lab.symmys.com': 'symmys.nextthought.com',
+    'learnonline.okstate.edu': 'okstate.nextthought.com',
+    'litworld.nextthought.com': 'litworld.nextthought.com',
+    'mathcounts.nextthought.com': 'mathcounts.nextthought.com',
+    'oc.nextthought.com': 'oc.nextthought.com',
+    'okstate.nextthought.com': 'okstate.nextthought.com',
+    'platform.ou.edu': 'platform.ou.edu',
+    'prmia.nextthought.com': 'prmia.nextthought.com',
+    'spurstartup.nextthought.com': 'spurstartup.nextthought.com',
+    'symmys.nextthought.com': 'symmys.nextthought.com'
+}
+
 def sync_library(host, user, password, flags):
     def _analyze_response(response):
         #    print(json.dumps(response.json(), indent=4, separators=(',', ': '), sort_keys=True))
@@ -54,30 +100,32 @@ def sync_library(host, user, password, flags):
     url = 'https://%s/dataserver2/@@SyncAllLibraries' % host
     headers = {
         'Content-Type': 'application/json',
-        'user-agent': 'NextThought Library Sync Utility',
-        'X-Requested-With': 'XMLHttpRequest'
+        'user-agent': 'NextThought Library Sync Utility'
     }
 
     body = {}
     body['requestTime'] = time()
+    body['site'] = reverse_site_map[host]
     if flags['remove-content']:
         body['allowRemoval'] = 'true'
 
-    logger.info('Syncing %s libraries' % host)
+    logger.info('Syncing %s site-library on %s' % (reverse_site_map[host], host))
     try:
         response = requests.get(url, headers=headers, data=json.dumps(body), auth=(user, password))
         response_body = _analyze_response_body(response, response.status_code)
         response.raise_for_status()
         if response.status_code == requests.codes.ok:
-            if flags['dry-run-only']:
-                logger.info('Dry-run sync of %s libraries succeeded. Exiting.' % host)
+            if response_body['sites'] == []:
+                logger.info('Dry-run sync of %s site-library succeeded. No changes detected. Exiting.' % reverse_site_map[host])
+            elif flags['dry-run-only']:
+                logger.info('Dry-run sync of %s site-library succeeded. The following changes were noted:' % reverse_site_map[host])
             else:
-                logger.info('Dry-run sync of %s libraries succeeded. Performing real sync.' % host)
+                logger.info('Dry-run sync of %s site-library succeeded. Performing real sync.' % reverse_site_map[host])
                 response = requests.post(url, headers=headers, data=json.dumps(body), auth=(user, password))
                 response_body = _analyze_response_body(response, response.status_code)
                 response.raise_for_status()
                 if response.status_code == requests.codes.ok:
-                    logger.info('Sync of %s libraries succeeded.' % host)
+                    logger.info('Sync of %s site-library succeeded.' % reverse_site_map[host])
     except requests.HTTPError:
         logger.error(response_body['message'])
 
