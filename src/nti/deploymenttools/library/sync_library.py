@@ -65,25 +65,118 @@ reverse_site_map = {
 }
 
 def sync_library(host, user, password, flags):
-    def _analyze_response(response):
-        #    print(json.dumps(response.json(), indent=4, separators=(',', ': '), sort_keys=True))
-        pass
+    def _resolve_object(ntiid, host, auth):
+        url = 'https://%s/dataserver2/Objects/%s' % (host, ntiid)
+        headers = {
+            'user-agent': 'NextThought Library Sync Utility'
+        }
 
-    def _analyze_response_body(response, status_code):
+        try:
+            response = requests.get(url, headers=headers, auth=auth)
+            response.raise_for_status()
+            _o = response.json()
+        except requests.HTTPError as e:
+            print(url)
+            print(e)
+            logger.warning('Unable to resolve %s' % ntiid)
+            _o = { 'NTIID': ntiid, 'title': ntiid }
+        return _o
+
+    def _get_object(href, host, auth):
+        url = 'https://%s%s' % (host, href)
+        headers = {
+            'user-agent': 'NextThought Library Sync Utility'
+        }
+
+        try:
+            response = requests.get(url, headers=headers, auth=auth)
+            response.raise_for_status()
+            _o = response.json()
+        except requests.HTTPError as e:
+            print(url)
+            print(e)
+            logger.warning('Unable retrieve object at %s' % url)
+            _o = { 'href': href }
+        return _o
+
+    def _analyze_site(site, host, auth):
+        message = u"\n"
+        if site['Added'] is not None:
+            message += u"Courses Added:\n"
+            for course in site['Added']:
+                message += u"%s\n" % _resolve_object(course, host, auth)['title']
+        if site['Modified'] is not None:
+            message += u"Courses Modified:\n"
+            for course in site['Modified']:
+                message += u"%s\n" % _resolve_object(course, host, auth)['title']
+        if site['Removed'] is not None:
+            message += u"Courses Removed:\n"
+            for course in site['Removed']:
+                message += u"%s\n" % _resolve_object(course, host, auth)['title']
+        return message
+
+    def _analyze_response_body(response, status_code, host, auth):
+        def _is_course_updated(course):
+            non_booleans = [
+                "Class",
+                "Lessons",
+                "MimeType",
+                "NTIID",
+                "Site"
+            ]
+
+            is_updated = False
+            for key in course:
+                if key not in non_booleans:
+                    if course[key] is True:
+                        is_updated = True
+            if course['Lessons'] is not None:
+                if course['Lessons']['LessonsUpdated'] is not []:
+                    is_updated = True
+            return is_updated
+
         if 'json' in response.headers['content-type']:
             if response.status_code == requests.codes.ok:
                 results = response.json()['Results']['Items']
                 _sites = []
                 _courses = []
+                _packages = []
                 for result in results:
                     if result['Class'] == 'LibrarySynchronizationResults':
-                        if not (result['Added'] == result['Modified'] == result['Removed'] == None):
-                            _sites.append(result)
+                        _sites.append(result)
                     elif result['Class'] == 'CourseSynchronizationResults':
-                        _courses.append(result)
-                return {'sites': _sites, 'courses': _courses}
+                        if _is_course_updated(result):
+                            _courses.append(result)
+                    elif result['Class'] == 'ContentPackageSyncResults':
+                        if not (result['AssessmentsUpdated'] == result['AssetsUpdated'] == None):
+                            _packages.append(result)
+                    else:
+                        logger.warn('Unhandled type: %s' % result['Class'])
+                for course in _courses:
+                    for site in _sites:
+                        if site['Name'] == course['Site']:
+                            try:
+                                course_entry = _resolve_object(course['NTIID'], host, auth)
+                                for link in course_entry['Links']:
+                                    if link['rel'] == 'CourseInstance':
+                                        course_instance = _get_object(link['href'],host, auth)
+                                for content_package in course_instance['ContentPackageBundle']['ContentPackages']:
+                                    if content_package['NTIID'] in site['Modified']:
+                                        site['Modified'].remove(content_package['NTIID'])
+                                site['Modified'].append(course['NTIID'])
+                            except AttributeError:
+                                site['Modified'] = []
+                                site['Modified'].append(course['NTIID'])
+                            except TypeError:
+                                site['Modified'] = []
+                                site['Modified'].append(course['NTIID'])
+                            except KeyError:
+                                logger.warning(json.dumps(course_instance, indent=4, separators=(',', ': '), sort_keys=True))
+                for site in _sites:
+                    if (site['Added'] == site['Modified'] == site['Removed'] == None):
+                        _sites.remove(site)
+                return {'sites': _sites, 'courses': _courses, 'packages': _packages}
             else:
-#                print(json.dumps(response.json(), indent=4, separators=(',', ': '), sort_keys=True))
                 return(response.json())
         else:
             if status_code == requests.codes.unauthorized:
@@ -112,20 +205,22 @@ def sync_library(host, user, password, flags):
     logger.info('Syncing %s site-library on %s' % (reverse_site_map[host], host))
     try:
         response = requests.get(url, headers=headers, data=json.dumps(body), auth=(user, password))
-        response_body = _analyze_response_body(response, response.status_code)
+        response_body = _analyze_response_body(response, response.status_code, host, (user, password))
         response.raise_for_status()
         if response.status_code == requests.codes.ok:
             if response_body['sites'] == []:
                 logger.info('Dry-run sync of %s site-library succeeded. No changes detected. Exiting.' % reverse_site_map[host])
             elif flags['dry-run-only']:
                 logger.info('Dry-run sync of %s site-library succeeded. The following changes were noted:' % reverse_site_map[host])
+                logger.info(_analyze_site(response_body['sites'][0], host, (user, password)))
             else:
                 logger.info('Dry-run sync of %s site-library succeeded. Performing real sync.' % reverse_site_map[host])
                 response = requests.post(url, headers=headers, data=json.dumps(body), auth=(user, password))
-                response_body = _analyze_response_body(response, response.status_code)
+                response_body = _analyze_response_body(response, response.status_code, host, (user, password))
                 response.raise_for_status()
                 if response.status_code == requests.codes.ok:
                     logger.info('Sync of %s site-library succeeded.' % reverse_site_map[host])
+                    logger.info(_analyze_site(response_body['sites'][0], host, (user, password)))
     except requests.HTTPError:
         logger.error(response_body['message'])
 
