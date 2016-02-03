@@ -21,6 +21,7 @@ logging.captureWarnings(True)
 reverse_site_map = {
     'alpha.nextthought.com': 'alpha.nextthought.com',
     'augsfluoroscopy-alpha.nextthought.com': 'augsfluoroscopy.nextthought.com',
+    'beta.nextthought.com': 'alpha.nextthought.com',
     'columbia-alpha.nextthought.com': 'columbia.nextthought.com',
     'connect-alpha.nextthought.com': 'connect.nextthought.com',
     'ihs-alpha.nextthought.com': 'ihs.nextthought.com',
