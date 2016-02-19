@@ -175,7 +175,7 @@ def sync_library(host, user, password, flags):
                                 site['Modified'] = []
                                 site['Modified'].append(course['NTIID'])
                             except KeyError:
-                                logger.warning(json.dumps(course_instance, indent=4, separators=(',', ': '), sort_keys=True))
+                                logger.warning(json.dumps([site, course], indent=4, separators=(',', ': '), sort_keys=True))
                 for site in _sites:
                     if (site['Added'] == site['Modified'] == site['Removed'] == None):
                         _sites.remove(site)
