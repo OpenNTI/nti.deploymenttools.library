@@ -161,6 +161,7 @@ def sync_library(host, user, password, flags):
                         if site['Name'] == course['Site']:
                             try:
                                 course_entry = _resolve_object(course['NTIID'], host, auth)
+                                course_instance = None
                                 for link in course_entry['Links']:
                                     if link['rel'] == 'CourseInstance':
                                         course_instance = _get_object(link['href'],host, auth)
