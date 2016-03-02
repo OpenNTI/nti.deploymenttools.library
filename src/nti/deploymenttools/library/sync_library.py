@@ -34,6 +34,7 @@ reverse_site_map = {
     'okstate-alpha.nextthought.com': 'okstate.nextthought.com',
     'ou-alpha.nextthought.com': 'platform.ou.edu',
     'prmia-alpha.nextthought.com': 'prmia.nextthought.com',
+    'santafesouth-alpha.nextthought.com': 'santafesouth.nextthought.com',
     'spurstartup-alpha.nextthought.com': 'spurstartup.nextthought.com',
     'symmys-alpha.nextthought.com': 'symmys.nextthought.com',
     'augsfluoroscopy-test.nextthought.com': 'augsfluoroscopy.nextthought.com',
@@ -49,6 +50,7 @@ reverse_site_map = {
     'okstate-test.nextthought.com': 'okstate.nextthought.com',
     'ou-test.nextthought.com': 'platform.ou.edu',
     'prmia-test.nextthought.com': 'prmia.nextthought.com',
+    'santafesouth-test.nextthought.com': 'santafesouth.nextthought.com',
     'spurstartup-test.nextthought.com': 'spurstartup.nextthought.com',
     'symmys-test.nextthought.com': 'symmys.nextthought.com',
     'augsfluoroscopy.nextthought.com': 'augsfluoroscopy.nextthought.com',
@@ -67,6 +69,7 @@ reverse_site_map = {
     'okstate.nextthought.com': 'okstate.nextthought.com',
     'platform.ou.edu': 'platform.ou.edu',
     'prmia.nextthought.com': 'prmia.nextthought.com',
+    'santafesouth.nextthought.com': 'santafesouth.nextthought.com',
     'spurstartup.nextthought.com': 'spurstartup.nextthought.com',
     'symmys.nextthought.com': 'symmys.nextthought.com'
 }
