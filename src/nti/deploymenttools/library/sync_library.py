@@ -77,15 +77,16 @@ reverse_site_map = {
     'symmys.nextthought.com': 'symmys.nextthought.com'
 }
 
-def sync_library(host, user, password, flags):
-    def _resolve_object(ntiid, host, auth):
+def sync_library(host, user, password, flags, timeout=1200.0):
+    def _resolve_object(ntiid, host, auth, timeout=1200.0):
         url = 'https://%s/dataserver2/Objects/%s' % (host, ntiid)
         headers = {
             'user-agent': 'NextThought Library Sync Utility'
         }
 
         try:
-            response = requests.get(url, headers=headers, auth=auth)
+            logger.debug('Resolving %s' % ntiid)
+            response = requests.get(url, headers=headers, auth=auth, timeout=timeout)
             response.raise_for_status()
             _o = response.json()
         except requests.HTTPError as e:
@@ -93,16 +94,20 @@ def sync_library(host, user, password, flags):
             print(e)
             logger.warning('Unable to resolve %s' % ntiid)
             _o = { 'NTIID': ntiid, 'title': ntiid }
+        except requests.exceptions.ReadTimeout as e:
+            logger.warning('No response from %s in %s seconds when resolving %s.' % (host, timeout, ntiid))
+            _o = { 'NTIID': ntiid, 'title': ntiid }
         return _o
 
-    def _get_object(href, host, auth):
+    def _get_object(href, host, auth, timeout=1200.0):
         url = 'https://%s%s' % (host, href)
         headers = {
             'user-agent': 'NextThought Library Sync Utility'
         }
 
         try:
-            response = requests.get(url, headers=headers, auth=auth)
+            logger.debug('Retrieving %s' % href)
+            response = requests.get(url, headers=headers, auth=auth, timeout=timeout)
             response.raise_for_status()
             _o = response.json()
         except requests.HTTPError as e:
@@ -110,22 +115,25 @@ def sync_library(host, user, password, flags):
             print(e)
             logger.warning('Unable retrieve object at %s' % url)
             _o = { 'href': href }
+        except requests.exceptions.ReadTimeout as e:
+            logger.warning('No response from %s in %s seconds when retrieving %s.' % (host, timeout, href))
+            _o = { 'href': href }
         return _o
 
-    def _analyze_site(site, host, auth):
+    def _analyze_site(site, host, auth, timeout=1200.0):
         message = u"\n"
         if site['Added'] is not None:
             message += u"Courses Added:\n"
             for course in site['Added']:
-                message += u"%s\n" % _resolve_object(course, host, auth)['title']
+                message += u"%s\n" % _resolve_object(course, host, auth, timeout=timeout)['title']
         if site['Modified'] is not None:
             message += u"Courses Modified:\n"
             for course in site['Modified']:
-                message += u"%s\n" % _resolve_object(course, host, auth)['title']
+                message += u"%s\n" % _resolve_object(course, host, auth, timeout=timeout)['title']
         if site['Removed'] is not None:
             message += u"Courses Removed:\n"
             for course in site['Removed']:
-                message += u"%s\n" % _resolve_object(course, host, auth)['title']
+                message += u"%s\n" % _resolve_object(course, host, auth, timeout=timeout)['title']
         return message
 
     def _analyze_response_body(response, status_code, host, auth):
@@ -148,6 +156,7 @@ def sync_library(host, user, password, flags):
                     is_updated = True
             return is_updated
 
+        logger.debug('Analyzing sync response...')
         if 'json' in response.headers['content-type']:
             if response.status_code == requests.codes.ok:
                 results = response.json()['Results']['Items']
@@ -169,11 +178,11 @@ def sync_library(host, user, password, flags):
                     for site in _sites:
                         if site['Name'] == course['Site']:
                             try:
-                                course_entry = _resolve_object(course['NTIID'], host, auth)
+                                course_entry = _resolve_object(course['NTIID'], host, auth, timeout=timeout)
                                 course_instance = None
                                 for link in course_entry['Links']:
                                     if link['rel'] == 'CourseInstance':
-                                        course_instance = _get_object(link['href'],host, auth)
+                                        course_instance = _get_object(link['href'],host, auth, timeout=timeout)
                                 for content_package in course_instance['ContentPackageBundle']['ContentPackages']:
                                     if content_package['NTIID'] in site['Modified']:
                                         site['Modified'].remove(content_package['NTIID'])
@@ -218,18 +227,18 @@ def sync_library(host, user, password, flags):
 
     logger.info('Syncing %s site-library on %s' % (reverse_site_map[host], host))
     try:
-        response = requests.get(url, headers=headers, data=json.dumps(body), auth=(user, password))
+        response = requests.get(url, headers=headers, data=json.dumps(body), auth=(user, password), timeout=timeout)
         response_body = _analyze_response_body(response, response.status_code, host, (user, password))
         response.raise_for_status()
         if response.status_code == requests.codes.ok:
-            if response_body['sites'] == []:
+            if response_body['sites'] == [] and not flags['force']:
                 logger.info('Dry-run sync of %s site-library succeeded. No changes detected. Exiting.' % reverse_site_map[host])
             elif flags['dry-run-only']:
                 logger.info('Dry-run sync of %s site-library succeeded. The following changes were noted:' % reverse_site_map[host])
                 logger.info(_analyze_site(response_body['sites'][0], host, (user, password)))
             else:
                 logger.info('Dry-run sync of %s site-library succeeded. Performing real sync.' % reverse_site_map[host])
-                response = requests.post(url, headers=headers, data=json.dumps(body), auth=(user, password))
+                response = requests.post(url, headers=headers, data=json.dumps(body), auth=(user, password), timeout=timeout)
                 response_body = _analyze_response_body(response, response.status_code, host, (user, password))
                 response.raise_for_status()
                 if response.status_code == requests.codes.ok:
@@ -237,6 +246,8 @@ def sync_library(host, user, password, flags):
                     logger.info(_analyze_site(response_body['sites'][0], host, (user, password)))
     except requests.HTTPError:
         logger.error(response_body['message'])
+    except requests.exceptions.ReadTimeout as e:
+        logger.warning('No response from %s in %s seconds when syncing %s.' % (host, timeout, reverse_site_map[host]))
 
 def _parse_args():
     # Parse command line args
@@ -245,6 +256,12 @@ def _parse_args():
                              help="The server to be synced." )
     arg_parser.add_argument( '-u', '--user', dest='user', 
                              help="User to authenticate with the server." )
+    arg_parser.add_argument( '-v', '--verbose', dest='verbose', action='store_true', default=False,
+                             help="Print debugging logs." )
+    arg_parser.add_argument( '-f', '--force', dest='force', action='store_true', default=False,
+                             help="Forces a sync even if the dry-run reports no changes." )
+    arg_parser.add_argument( '-t', '--timeout', dest='timeout', default=1200.0,
+                             help="Print debugging logs." )
     arg_parser.add_argument( '--password', dest='password', default=None,
                              help="User password. This option should only be used when calling this utility via a script." )
     arg_parser.add_argument( '--remove-content', dest='remove_content', action='store_true', 
@@ -259,12 +276,17 @@ def main():
     flags = {}
     flags['remove-content'] = args.remove_content
     flags['dry-run-only'] = args.dry_run
+    flags['force'] = args.force
+
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+        log_handler.setLevel(logging.DEBUG)
 
     password = args.password
     if password is None:
         password = getpass('Password for %s: ' % args.user)
 
-    sync_library(args.host, args.user, password, flags)
+    sync_library(args.host, args.user, password, flags, timeout=float(args.timeout))
 
 if __name__ == '__main__': # pragma: no cover
         main()
