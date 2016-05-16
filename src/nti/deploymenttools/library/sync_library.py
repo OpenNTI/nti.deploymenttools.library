@@ -39,6 +39,7 @@ reverse_site_map = {
     'santafesouth-alpha.nextthought.com': 'santafesouth.nextthought.com',
     'spurstartup-alpha.nextthought.com': 'spurstartup.nextthought.com',
     'symmys-alpha.nextthought.com': 'symmys.nextthought.com',
+    'wiley-alpha.nextthought.com': 'wiley.nextthought.com',
     'augsfluoroscopy-test.nextthought.com': 'augsfluoroscopy.nextthought.com',
     'columbia-test.nextthought.com': 'columbia.nextthought.com',
     'connect-test.nextthought.com': 'connect.nextthought.com',
@@ -57,6 +58,7 @@ reverse_site_map = {
     'santafesouth-test.nextthought.com': 'santafesouth.nextthought.com',
     'spurstartup-test.nextthought.com': 'spurstartup.nextthought.com',
     'symmys-test.nextthought.com': 'symmys.nextthought.com',
+    'wiley-test.nextthought.com': 'wiley.nextthought.com',
     'augsfluoroscopy.nextthought.com': 'augsfluoroscopy.nextthought.com',
     'columbia.nextthought.com': 'columbia.nextthought.com',
     'connect.nextthought.com': 'connect.nextthought.com',
@@ -78,7 +80,8 @@ reverse_site_map = {
     'prmia.nextthought.com': 'prmia.nextthought.com',
     'santafesouth.nextthought.com': 'santafesouth.nextthought.com',
     'spurstartup.nextthought.com': 'spurstartup.nextthought.com',
-    'symmys.nextthought.com': 'symmys.nextthought.com'
+    'symmys.nextthought.com': 'symmys.nextthought.com',
+    'wiley.nextthought.com': 'wiley.nextthought.com'
 }
 
 def sync_library(host, user, password, flags, timeout=1200.0):
