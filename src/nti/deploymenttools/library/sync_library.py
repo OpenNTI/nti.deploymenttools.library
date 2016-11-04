@@ -2,12 +2,14 @@
 
 from __future__ import unicode_literals, print_function
 
+from argparse import ArgumentParser
 from getpass import getpass
 from time import time
 
-import argparse
 import json
 import requests
+
+from dns.resolver import Resolver as DNSResolver
 
 import logging
 logger = logging.getLogger('nti.deploymenttools.library')
@@ -90,7 +92,15 @@ reverse_site_map = {
     'wiley.nextthought.com': 'wiley.nextthought.com'
 }
 
-def sync_library(host, user, password, flags, timeout=1200.0):
+def dns_resolve_site(hostname):
+    txt_records = {}
+    results = DNSResolver().query(hostname, "TXT")
+    for result in results:
+        result = result.to_text()[1:-1].split('=', 1)
+        txt_records[result[0]] = result[1]
+    return txt_records['site']
+
+def sync_library(host, site, user, password, flags, timeout=1200.0):
     def _resolve_object(ntiid, host, auth, timeout=1200.0):
         url = 'https://%s/dataserver2/Objects/%s' % (host, ntiid)
         headers = {
@@ -234,37 +244,37 @@ def sync_library(host, user, password, flags, timeout=1200.0):
 
     body = {}
     body['requestTime'] = time()
-    body['site'] = reverse_site_map[host]
+    body['site'] = site
     if flags['remove-content']:
         body['allowRemoval'] = 'true'
 
-    logger.info('Syncing %s site-library on %s' % (reverse_site_map[host], host))
+    logger.info('Syncing %s site-library on %s' % (site, host))
     try:
         response = requests.get(url, headers=headers, data=json.dumps(body), auth=(user, password), timeout=timeout)
         response_body = _analyze_response_body(response, response.status_code, host, (user, password))
         response.raise_for_status()
         if response.status_code == requests.codes.ok:
             if response_body['sites'] == [] and not flags['force']:
-                logger.info('Dry-run sync of %s site-library succeeded. No changes detected. Exiting.' % reverse_site_map[host])
+                logger.info('Dry-run sync of %s site-library succeeded. No changes detected. Exiting.' % site)
             elif flags['dry-run-only']:
-                logger.info('Dry-run sync of %s site-library succeeded. The following changes were noted:' % reverse_site_map[host])
+                logger.info('Dry-run sync of %s site-library succeeded. The following changes were noted:' % site)
                 logger.info(_analyze_site(response_body['sites'][0], host, (user, password)))
             else:
-                logger.info('Dry-run sync of %s site-library succeeded. Performing real sync.' % reverse_site_map[host])
+                logger.info('Dry-run sync of %s site-library succeeded. Performing real sync.' % site)
                 response = requests.post(url, headers=headers, data=json.dumps(body), auth=(user, password), timeout=timeout)
                 response_body = _analyze_response_body(response, response.status_code, host, (user, password))
                 response.raise_for_status()
                 if response.status_code == requests.codes.ok:
-                    logger.info('Sync of %s site-library succeeded.' % reverse_site_map[host])
+                    logger.info('Sync of %s site-library succeeded.' % site)
                     logger.info(_analyze_site(response_body['sites'][0], host, (user, password)))
     except requests.HTTPError:
         logger.error(response_body['message'])
     except requests.exceptions.ReadTimeout as e:
-        logger.warning('No response from %s in %s seconds when syncing %s.' % (host, timeout, reverse_site_map[host]))
+        logger.warning('No response from %s in %s seconds when syncing %s.' % (host, timeout, site))
 
 def _parse_args():
     # Parse command line args
-    arg_parser = argparse.ArgumentParser( description="Content Library Mangement Utility" )
+    arg_parser = ArgumentParser( description="Content Library Mangement Utility" )
     arg_parser.add_argument( '-s', '--server', dest='host', 
                              help="The server to be synced." )
     arg_parser.add_argument( '-u', '--user', dest='user', 
@@ -299,7 +309,12 @@ def main():
     if password is None:
         password = getpass('Password for %s: ' % args.user)
 
-    sync_library(args.host, args.user, password, flags, timeout=float(args.timeout))
+    try:
+        site = reverse_site_map[args.host]
+    except KeyError:
+        site = dns_resolve_site(args.host)
+
+    sync_library(args.host, site, args.user, password, flags, timeout=float(args.timeout))
 
 if __name__ == '__main__': # pragma: no cover
         main()
