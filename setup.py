@@ -29,6 +29,7 @@ setup(
 	],
 	install_requires = [
 		'setuptools',
+		'dnspython',
 		'requests',
 	],
 	packages = find_packages( 'src' ),
